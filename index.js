@@ -2,18 +2,23 @@
 require("dotenv").config();
 const fs = require('fs');
 const path = require('path');
+const sqlite3 = require('sqlite3').verbose();
 
-const { Client, Collection, Events, GatewayIntentBits, SlashCommandBuilder} = require('discord.js');
+const { Client, Collection, Events, GatewayIntentBits, SlashCommandBuilder, PermissionFlagsBits} = require('discord.js');
 
 // Inents to be used by client
 const client = new Client({intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildModeration,
 
 ]});
 
+
+
 client.commands = new Collection();
+client.cooldowns = new Collection();
 const token = process.env.TOKEN;
 
 const timeInitialised = new Date();
@@ -26,44 +31,6 @@ exports.dateString = dateString
 client.once(Events.ClientReady, c => {
     console.log(`Bot Is Online. Logged in as ${c.user.tag} At ${dateString};`);
 })
-
-// Handles Creation Of Interactions
-client.on(Events.InteractionCreate, async interaction => {
-    if(!interaction.isChatInputCommand()) return;
-    
-    const command = interaction.client.commands.get(interaction.commandName);
-    if(!command) {
-       return console.error(`[ERR] No command matching ${interaction.commandName} found, something went wrong.`);
-    }
-
-    try {
-        await command.execute(interaction, client);
-    } catch (error) {
-        console.error(error)
-        if(interaction.replied | interaction.deferred) {
-            await interaction.followUp({content: 'There was an error when executing this command, if you believe this was a mistake, please contact Nebzla', ephemeral: true});
-
-        } else {
-            await interaction.reply({content: 'There was an error when executing this command, if you believe this was a mistake, please contact Nebzla', ephemeral: true});
-        }
-    }
-    
-    const commandsPath = path.join(__dirname, 'commands');
-    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-    
-    for(const file of commandFiles) {
-        const filePath = path.join(commandsPath, file);
-        const command = require(filePath);
-    
-        if('data' in command && 'execute' in command) {
-            client.commands.set(command.data.name, command);
-            
-        } else {
-            console.log(`[WARN] The command from path ${filePath} is missing required "data" or "execute" properties`)
-        }
-    } 
-})
-
 
 
 // Iterates through .js files in ./commands subsequent directories and executes them;
@@ -79,8 +46,7 @@ for(const folder of commandFolders) {
         const command = require(filePath);
     
         if('data' in command && 'execute' in command) {
-            client.commands.set(command.data.name, command);
-            
+            client.commands.set(command.data.name, command);     
         } else {
             console.log(`[WARN] The command from path ${filePath} is missing required "data" or "execute" properties`)
         }
@@ -101,6 +67,16 @@ for(const file of eventFiles) {
     }
 
 };
+
+let punishmentsDB = new sqlite3.Database('./Databases/punishments.db', sqlite3.OPEN_CREATE | sqlite3.OPEN_READWRITE, (err) => {
+    if(err) return console.error(err.message);
+    else console.log('Connected To Database');
+})
+
+punishmentsDB.run(`CREATE TABLE IF NOT EXISTS Mutes(Guild STRING, User STRING, MutedUntil STRING)`)
+.run(`CREATE TABLE IF NOT EXISTS Users(Guild STRING, User STRING, Warnings INTEGER, IsMuted STRING, IsTimedOut STRING)`);
+
+punishmentsDB.close();
 
 
 

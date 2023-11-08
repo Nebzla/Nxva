@@ -10,7 +10,6 @@ module.exports = {
         const ms = require('ms');
 
         const dateDifference = (new Date().getTime() - index.timeInitialised.getTime());
-        console.log(dateDifference);
         const dateDifferenceString = ms(dateDifference, {long: true});
 
 
