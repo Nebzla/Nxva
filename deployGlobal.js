@@ -31,6 +31,7 @@ for(const folder of commandFolders) {
 
 }
 
+// Refreshes slash commands globally (Takes some time to apply)
 const rest = new REST().setToken(process.env.TOKEN);
 (async () => {
     try {

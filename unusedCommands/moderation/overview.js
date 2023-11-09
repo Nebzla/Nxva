@@ -2,7 +2,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder, Permi
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('punish')
+        .setName('overwiew')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .setDescription('Opens an overlay that displays the user\'s punishment history and actions to take against them.')
         
@@ -46,7 +46,7 @@ module.exports = {
             .setURL('https://google.com') // Placeholder for eventual dashboard
             .setDisabled(true)
             .setStyle(ButtonStyle.Link)
-
+z
         const row = new ActionRowBuilder()
         .addComponents(banButton, kickButton, muteButton, timeoutButton, linkButton)
 

@@ -32,6 +32,7 @@ for(const folder of commandFolders) {
 
 }
 
+//Refreshes slash commands in the guild specified in .env
 const rest = new REST().setToken(process.env.TOKEN);
 (async () => {
     try {
