@@ -1,124 +1,165 @@
-const { ActionRowBuilder, SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder} = require('discord.js');
-const sqlite3 = require('sqlite3').verbose();
-const stylings = require('../../stylings');
-const settings = require('../utilities/settings.js');
-const ms = require('ms');
+const {
+	ActionRowBuilder,
+	SlashCommandBuilder,
+	PermissionFlagsBits,
+	EmbedBuilder,
+} = require("discord.js");
+const sqlite3 = require("sqlite3").verbose();
+const stylings = require("../../stylings");
+const settings = require("../utilities/settings.js");
+const ms = require("ms");
 
 module.exports = {
-    data: new SlashCommandBuilder()
-        .setName('warn')
-        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
-        .setDescription('Warns a user. Will be purely cosmetic to their profile unless warning punishments are setup')
-        
-        .addUserOption(option => {
-            return option.setName('user')
-                .setDescription('The user that you would like to warn')
-                .setRequired(true)
-        })
-        .addStringOption(option => {
-            return option.setName('reason')
-                .setDescription('The reason for warning them, defaults to standard in settings')
-        }),
-        async execute(interaction) {
-            let punishmentsDB = new sqlite3.Database('./Databases/punishments.db', sqlite3.OPEN_READWRITE, (err) => {
-                if(err) return console.error(err.message);
-            })
+	data: new SlashCommandBuilder()
+		.setName("warn")
+		.setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
+		.setDescription(
+			"Warns a user. Will be purely cosmetic to their profile unless warning punishments are setup",
+		)
 
-            const guild = interaction.guild;
-            const target = interaction.options.getUser('user');
-            const guildTarget = await guild.members.fetch(target.id);
+		.addUserOption((option) => {
+			return option
+				.setName("user")
+				.setDescription("The user that you would like to warn")
+				.setRequired(true);
+		})
+		.addStringOption((option) => {
+			return option
+				.setName("reason")
+				.setDescription(
+					"The reason for warning them, defaults to standard in settings",
+				);
+		}),
+	async execute(interaction) {
+		let punishmentsDB = new sqlite3.Database(
+			"./Databases/punishments.db",
+			sqlite3.OPEN_READWRITE,
+			(err) => {
+				if (err) return console.error(err.message);
+			},
+		);
 
-            const defaultReason = await settings.GetDefaultReason(guild.id);
-            const reason = interaction.options.getString('reason') ?? (defaultReason ?? 'None');
+		const guild = interaction.guild;
+		const target = interaction.options.getUser("user");
 
-            const duration = await settings.GetWarningDuration(guild.id);
-            if(!duration) return interaction.reply({content: 'You haven\'t setup a warning duration in settings!', ephemeral: true});
-            const warningExpiry = Date.now() + parseInt(duration);
+		const defaultReason = await settings.GetDefaultReason(guild.id);
+		const reason =
+			interaction.options.getString("reason") ?? defaultReason ?? "None";
 
-            const q = 'SELECT * FROM Warnings WHERE Guild = ? AND User = ?';
+		const duration = await settings.GetWarningDuration(guild.id);
+		if (!duration)
+			return interaction.reply({
+				content: "You haven't setup a warning duration in settings!",
+				ephemeral: true,
+			});
+		const warningExpiry = Date.now() + parseInt(duration);
 
-            punishmentsDB.get(q, [guild.id, target.id], async (err, row) => {
-                if(err) {
-                    return console.error(err.message);
-                }
+		const q = "SELECT * FROM Warnings WHERE Guild = ? AND User = ?";
 
-                let warnings = 1;
-                let warnReasons = [];
+		punishmentsDB.get(q, [guild.id, target.id], async (err, row) => {
+			if (err) {
+				return console.error(err.message);
+			}
 
-                if(row) {
-                    warnings += row.Warnings;
-                    warnReasons = JSON.parse(row.WarningReasons);
-                }
-                
-                warnReasons.push(reason);
+			let warnings = 1;
+			let warnReasons = [];
 
-                const confirmEmbed = new EmbedBuilder()
-                .setTitle('Confirm Warn')
-                .setColor('Orange')
-                .setDescription(`
+			if (row) {
+				warnings += row.Warnings;
+				warnReasons = JSON.parse(row.WarningReasons);
+			}
+
+			warnReasons.push(reason);
+
+			const confirmEmbed = new EmbedBuilder()
+				.setTitle("Confirm Warn")
+				.setColor("Orange").setDescription(`
 **User:** ${target.globalName}
 **Issued By:** ${interaction.user.globalName}
     
 **Previous Warnings:** ${warnings - 1}
 **Warn Reason:** ${reason}
-**Expires In:** ${ms(parseInt(duration), {long: true})} 
+**Expires In:** ${ms(parseInt(duration), { long: true })} 
 
-                `)
-                const publicEmbed = new EmbedBuilder()
-                .setTitle('User Warned')
-                .setColor('Orange')
-                .setDescription(`
+                `);
+			const publicEmbed = new EmbedBuilder()
+				.setTitle("User Warned")
+				.setColor("Orange").setDescription(`
 **User:** ${target.globalName}
     
 **Total Warnings:** ${warnings}
 **Warn Reason:** ${reason}
-**Expires In:** ${ms(parseInt(duration), {long: true})}
+**Expires In:** ${ms(parseInt(duration), { long: true })}
 
-                `)
+                `);
 
-                const actionRow = new ActionRowBuilder()
-                .addComponents(stylings.buttons.confirm, stylings.buttons.cancel)
+			const actionRow = new ActionRowBuilder().addComponents(
+				stylings.buttons.confirm,
+				stylings.buttons.cancel,
+			);
 
-                const resp = await interaction.reply({
-                    embeds: [confirmEmbed],
-                    components: [actionRow],
-                    ephemeral: true,
-                });
+			const resp = await interaction.reply({
+				embeds: [confirmEmbed],
+				components: [actionRow],
+				ephemeral: true,
+			});
 
-                // Listens for a button interaction from the user who ran the command
-                const collectFilter = x => x.user.id === interaction.user.id;
-                try {
-                    const c = await resp.awaitMessageComponent({filter: collectFilter, time: 60_000})
-                    //Warns if confirm button is pressed
-                    if(c.customId === 'confirm') {
+			// Listens for a button interaction from the user who ran the command
+			const collectFilter = (x) => x.user.id === interaction.user.id;
+			try {
+				const c = await resp.awaitMessageComponent({
+					filter: collectFilter,
+					time: 60_000,
+				});
+				//Warns if confirm button is pressed
+				if (c.customId === "confirm") {
+					// Updates Current Entry if it already exists
+					if (row) {
+						punishmentsDB.run(
+							"UPDATE Warnings SET Warnings = ?, WarningExpiry = ?, WarningReasons = ? WHERE Guild = ? AND User = ?",
+							[
+								warnings,
+								warningExpiry,
+								JSON.stringify(warnReasons),
+								guild.id,
+								target.id,
+							],
+						);
+					} else {
+						punishmentsDB.run(
+							"INSERT INTO Warnings(Guild,User,Warnings,WarningExpiry,WarningReasons) VALUES(?,?,?,?,?)",
+							[
+								guild.id,
+								target.id,
+								warnings,
+								warningExpiry,
+								JSON.stringify(warnReasons),
+							],
+						);
+					}
+					punishmentsDB.close();
 
-                        // Updates Current Entry if it already exists
-                        if(row) {
-                            punishmentsDB.run('UPDATE Warnings SET Warnings = ?, WarningExpiry = ?, WarningReasons = ? WHERE Guild = ? AND User = ?',
-                            [warnings, warningExpiry, JSON.stringify(warnReasons), guild.id, target.id]);   
-                        } else {
-                            
-                            punishmentsDB.run('INSERT INTO Warnings(Guild,User,Warnings,WarningExpiry,WarningReasons) VALUES(?,?,?,?,?)', 
-                            [guild.id, target.id, warnings, warningExpiry, JSON.stringify(warnReasons)]);
-                        
-                        }
-                        punishmentsDB.close();
+					await c.channel.send({
+						embeds: [publicEmbed],
+						components: [],
+						ephemeral: false,
+					});
+					await interaction.deleteReply();
+				} else if (c.customId === "cancel") {
+					await c.update({
+						embeds: [stylings.embeds.cancelled],
+						components: [],
+					});
+				}
 
-                        await c.channel.send({embeds: [publicEmbed], components: [], ephemeral: false})
-                        await interaction.deleteReply();
-
-
-
-
-                    } else if(c.customId === 'cancel') {
-                        await c.update({embeds: [buttons.embeds.cancelled], components: []});
-                    }
-
-                    // Catches interaction failiure if no response is given
-                } catch(e) {
-                    await interaction.editReply({ content: 'Confirmation not received within 1 minute, cancelling', components: [] });
-                }
-
-            })
-        }
-    }
+				// Catches interaction failiure if no response is given
+			} catch (e) {
+				await interaction.editReply({
+					content:
+						"Confirmation not received within 1 minute, cancelling",
+					components: [],
+				});
+			}
+		});
+	},
+};
