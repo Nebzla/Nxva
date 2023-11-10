@@ -40,7 +40,7 @@ module.exports = {
 					"How long to mute the user for, will be permanent if no duration is specified",
 				);
 		}),
-	async execute(interaction, client) {
+	async execute(interaction) {
 		let punishmentsDB = new sqlite3.Database(
 			"./Databases/punishments.db",
 			sqlite3.OPEN_READWRITE,

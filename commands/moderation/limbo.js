@@ -15,14 +15,14 @@ module.exports = {
 		.setName("limbo")
 		.setDefaultMemberPermissions(PermissionFlagsBits.MuteMembers)
 		.setDescription(
-			"Puts a user in limbo, removing their roles until undone.",
+			"Puts a user in limbo, removing their roles until undone."
 		)
 
 		.addUserOption((option) => {
 			return option
 				.setName("user")
 				.setDescription(
-					"The user that you would like to take action against",
+					"The user that you would like to take action against"
 				)
 				.setRequired(true);
 		})
@@ -30,7 +30,7 @@ module.exports = {
 			return option
 				.setName("reason")
 				.setDescription(
-					"The reason for putting them in limbo, defaults to standard in settings",
+					"The reason for putting them in limbo, defaults to standard in settings"
 				);
 		}),
 	async execute(interaction) {
@@ -39,7 +39,7 @@ module.exports = {
 			sqlite3.OPEN_READWRITE,
 			(err) => {
 				if (err) return console.error(err.message);
-			},
+			}
 		);
 
 		const guild = interaction.guild;
@@ -104,7 +104,7 @@ module.exports = {
 
 				const actionRow = new ActionRowBuilder().addComponents(
 					stylings.buttons.confirm,
-					stylings.buttons.cancel,
+					stylings.buttons.cancel
 				);
 
 				const resp = await interaction.reply({
@@ -130,17 +130,18 @@ module.exports = {
 								target.id,
 								reason,
 								JSON.stringify(lostRoles),
-							],
+							]
 						);
 						punishmentsDB.close();
 
-						guildTarget.roles.add(role);
+						guildTarget.roles.add(role).catch(() => {
+							return interaction.reply("An error occured, please ensure my role is above those you wish to manage in the hierarchy");
+						});
+
 						lostRoleObjects.forEach((r) => {
-							try {
-								guildTarget.roles.remove(r);
-							} catch (e) {
-								console.log(e);
-							}
+							guildTarget.roles.remove(r).catch(() => {
+								return interaction.reply("An error occured, please ensure my role is above those you wish to manage in the hierarchy");
+							});
 						});
 
 						await c.channel.send({
@@ -148,7 +149,7 @@ module.exports = {
 							components: [],
 							ephemeral: false,
 						});
-						
+
 						await interaction.deleteReply();
 					} else if (c.customId === "cancel") {
 						await c.update({

@@ -13,14 +13,14 @@ module.exports = {
 		.setName("clearlimbo")
 		.setDefaultMemberPermissions(PermissionFlagsBits.MuteMembers)
 		.setDescription(
-			"Take a user out of limbo, granting back any roles lost. Requires limbo role to be setup in settings",
+			"Take a user out of limbo, granting back any roles lost. Requires limbo role to be setup in settings"
 		)
 
 		.addUserOption((option) => {
 			return option
 				.setName("user")
 				.setDescription(
-					"The user that you would like to take action against",
+					"The user that you would like to take action against"
 				)
 				.setRequired(true);
 		}),
@@ -30,7 +30,7 @@ module.exports = {
 			sqlite3.OPEN_READWRITE,
 			(err) => {
 				if (err) return console.error(err.message);
-			},
+			}
 		);
 
 		const guild = interaction.guild;
@@ -78,7 +78,7 @@ module.exports = {
 
 				const actionRow = new ActionRowBuilder().addComponents(
 					stylings.buttons.confirm,
-					stylings.buttons.cancel,
+					stylings.buttons.cancel
 				);
 
 				const resp = await interaction.reply({
@@ -99,19 +99,21 @@ module.exports = {
 					if (c.customId === "confirm") {
 						punishmentsDB.run(
 							"DELETE FROM Limbos WHERE Guild = ? AND User = ?",
-							[guild.id, target.id],
+							[guild.id, target.id]
 						);
 						punishmentsDB.close();
 
 						const oldRoles = JSON.parse(row.LostRoles);
-						guildTarget.roles.remove(role);
+						guildTarget.roles.remove(role).catch(() => {
+							return interaction.reply(
+								"An error occured, please ensure my role is above those you wish to manage in the hierarchy"
+							);
+						});
 
 						oldRoles.forEach((rId) => {
-							try {
-								guildTarget.roles.add(rId);
-							} catch (e) {
-                                console.warn(e);
-                            }
+							guildTarget.roles.add(rId).catch((e) => {
+								console.warn(e);
+							});
 						});
 
 						await c.channel.send({
@@ -119,6 +121,7 @@ module.exports = {
 							components: [],
 							ephemeral: false,
 						});
+
 						await interaction.deleteReply();
 					} else if (c.customId === "cancel") {
 						await c.update({
