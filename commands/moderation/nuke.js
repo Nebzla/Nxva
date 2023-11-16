@@ -1,8 +1,9 @@
-const { SlashCommandBuilder } = require("discord.js");
+const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 
 module.exports = {
 	data: new SlashCommandBuilder()
 		.setName("nuke")
+		.setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
 		.setDescription(
 			"Removes up to 100 of the most recent messages in a channel.",
 		)

@@ -4,3 +4,7 @@ node_modules
 *.db
 *.prettierrc
 ./unusedCommands/*
+*.json
+*.prettierrc
+*.package-lock.json
+*.package.json

@@ -38,11 +38,11 @@ module.exports = {
 		const guild = interaction.guild;
 		const target = interaction.options.getUser("user");
 
-		const defaultReason = await settings.GetDefaultReason(guild.id);
+		const defaultReason = await settings.FetchSetting(guild.id, "DefaultPunishReason");
 		const reason =
 			interaction.options.getString("reason") ?? defaultReason ?? "None";
 
-		const duration = await settings.GetWarningDuration(guild.id);
+		const duration = await settings.FetchSetting(guild.id, "WarningDuration");
 		if (!duration)
 			return interaction.reply({
 				content: "You haven't setup a warning duration in settings!",

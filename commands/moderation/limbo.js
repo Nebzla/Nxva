@@ -41,11 +41,11 @@ module.exports = {
 		const target = interaction.options.getUser("user");
 		const guildTarget = await guild.members.fetch(target.id);
 
-		const defaultReason = await settings.GetDefaultReason(guild.id);
+		const defaultReason = await settings.FetchSetting(guild.id, "DefaultPunishReason");
 		const reason =
 			interaction.options.getString("reason") ?? defaultReason ?? "None";
 
-		const roleId = await settings.GetLimboRoleId(guild.id);
+		const roleId = await settings.FetchSetting(guild.id, "LimboRole");
 		if (!roleId)
 			return interaction.reply({
 				content: "You haven't setup a limbo role",

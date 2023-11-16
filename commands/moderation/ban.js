@@ -33,8 +33,8 @@ module.exports = {
 		const guild = interaction.guild;
 		const target = interaction.options.getUser("user");
 		const guildTarget = await guild.members.fetch(target.id);
-		const defaultReason = await settings.GetDefaultReason(guild.id);
-
+		const defaultReason = await settings.FetchSetting(guild.id, "DefaultPunishReason");
+		
 		const reason =
 			interaction.options.getString("reason") ?? defaultReason ?? "None";
 

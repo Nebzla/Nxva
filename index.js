@@ -83,7 +83,7 @@ const economyDB = DatabaseManager.InitialiseDatabase("economy.db");
 
 
 economyDB.CreateTable("Balance", DatabaseManager.CreateColumnsArray(["Guild", "Text", "User", "Text", "Balance", "Text"]));
-guildsDB.CreateTable("Settings", DatabaseManager.CreateColumnsArray(["Guild", "Text", "WarningDuration", "Text", "LimboRole", "Text", "DefaultPunishReason", "Text"]));
+guildsDB.CreateTable("Settings", DatabaseManager.CreateColumnsArray(["Guild", "Text", "WarningDuration", "Text", "LimboRole", "Text", "DefaultPunishReason", "Text", "StartingBalance", "Integer"]));
 punishmentsDB.CreateTable("Limbos", DatabaseManager.CreateColumnsArray(["Guild", "Text", "User", "Text", "Reason", "Text", "LostRoles", "Text"]));
 punishmentsDB.CreateTable("Warnings", DatabaseManager.CreateColumnsArray(["Guild", "Text", "User", "Text", "Warnings", "Integer", "WarningExpiry", "Text", "WarningReasons", "Text"]));
 

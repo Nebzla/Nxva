@@ -14,7 +14,7 @@ module.exports = {
 
 		const guildsDB = DatabaseManager.InitialiseDatabase("guilds.db");
 		const q = "SELECT * FROM Settings WHERE Guild = ?";
-		const row = guildsDB.Get(q, [guild.id]);
+		const row = await guildsDB.Get(q, [guild.id]);
 
 		try {
 			if (row) {
@@ -24,8 +24,8 @@ module.exports = {
 				);
 			} else {
 				guildsDB.RunValues(
-					"INSERT INTO Settings(Guild,WarningDuration,LimboRole,DefaultPunishReason) VALUES (?,?,?,?)",
-					[guild.id, null, null, reason],
+					"INSERT INTO Settings(Guild,DefaultPunishReason) VALUES (?,?)",
+					[guild.id, reason],
 				);
 			}
 			guildsDB.Close();

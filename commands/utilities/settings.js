@@ -3,13 +3,13 @@
 // /Settings <setting> <value>
 const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 const path = require("path");
-const sqlite3 = require("sqlite3").verbose();
+const DatabaseManager = require("../../Databases/databaseManager.js");
 
 module.exports = {
 	RemoveWarningsCheck: RemoveWarningsCheck,
-	GetLimboRoleId: GetLimboRoleId,
-	GetDefaultReason: GetDefaultReason,
-	GetWarningDuration: GetWarningDuration,
+	FetchSetting: FetchSetting,
+	CreateBalance: CreateBalance,
+	ResetBalance: ResetBalance,
 
 	data: new SlashCommandBuilder()
 		.setName("settings")
@@ -56,7 +56,22 @@ module.exports = {
 						)
 						.setRequired(true),
 				),
-		),
+		)
+		.addSubcommand((command) =>
+		command
+			.setName("startingbalance")
+			.setDescription(
+				"The default bank balance a user starts with when joining the server",
+			)
+			.addIntegerOption((option) =>
+				option
+					.setName("amount")
+					.setDescription(
+						"The $ amount",
+					)
+					.setRequired(true),
+			),
+	),
 	async execute(interaction) {
 		const settingsDir = path.join(__dirname, "settings");
 		const subcommand = interaction.options.getSubcommand();
@@ -72,6 +87,9 @@ module.exports = {
 			case "punishmentreason":
 				filePath = path.join(settingsDir, "punishmentreason");
 				break;
+			case "startingbalance":
+				filePath = path.join(settingsDir, "startingbalance");
+				break;
 			default:
 				return interaction.reply("Error");
 		}
@@ -81,112 +99,66 @@ module.exports = {
 	},
 };
 
-function GetLimboRoleId(guildId) {
-	return new Promise((resolve, reject) => {
-		let guildsDB = new sqlite3.Database(
-			"./Databases/guilds.db",
-			sqlite3.OPEN_READONLY,
-			(err) => {
-				if (err) return console.error(err.message);
-			},
-		);
+async function FetchSetting(guildId, setting) {
+		const guildsDB = DatabaseManager.InitialiseDatabase("guilds.db");
+		const q = "SELECT * FROM SETTINGS WHERE Guild = ?";
+		
 
-		guildsDB.get(
-			"SELECT * FROM Settings WHERE Guild = ?",
-			[guildId],
-			async (err, row) => {
-				if (err) {
-					reject();
-					return console.error(err.message);
-				}
+		const row = await guildsDB.Get(q, guildId);
+		guildsDB.Close();
 
-				if (row) resolve(row.LimboRole);
-				else resolve(null);
-			},
-		);
+		if(!row) return undefined;
+		
+		const _setting = row[setting];
+		if(!_setting) return null;
+		else return _setting;
 
-		guildsDB.close();
-	});
 }
 
-function GetDefaultReason(guildId) {
-	return new Promise((resolve, reject) => {
-		let guildsDB = new sqlite3.Database(
-			"./Databases/guilds.db",
-			sqlite3.OPEN_READONLY,
-			(err) => {
-				if (err) return console.error(err.message);
-			},
-		);
+async function CreateBalance(guild, user) {
+    const economyDB = DatabaseManager.InitialiseDatabase("economy.db");
+    const q = "INSERT INTO Balance(Guild, User, Balance) VALUES(?,?,?)";
+    
+	const startingBalance = await FetchSetting(guild, "StartingBalance");
+	if(startingBalance) economyDB.RunValues(q, [guild, user, startingBalance]);
+	else economyDB.RunValues(q, [guild, user, 100]);
 
-		guildsDB.get(
-			"SELECT * FROM Settings WHERE Guild = ?",
-			[guildId],
-			async (err, row) => {
-				if (err) {
-					reject();
-					return console.error(err.message);
-				}
-
-				if (row) resolve(row.DefaultPunishReason);
-				else resolve(null);
-			},
-		);
-
-		guildsDB.close();
-	});
+	economyDB.Close();
 }
 
-function GetWarningDuration(guildId) {
-	return new Promise((resolve, reject) => {
-		let guildsDB = new sqlite3.Database(
-			"./Databases/guilds.db",
-			sqlite3.OPEN_READONLY,
-			(err) => {
-				if (err) return console.error(err.message);
-			},
-		);
+async function ResetBalance(guild, user) {
+	const economyDB = DatabaseManager.InitialiseDatabase("economy.db");
+	const q = "DELETE FROM Balance WHERE Guild = ? AND User = ?";
+	try {
+		await economyDB.RunValues(q, [guild, user]);
+		economyDB.Close();
 
-		guildsDB.get(
-			"SELECT * FROM Settings WHERE Guild = ?",
-			[guildId],
-			async (err, row) => {
-				if (err) {
-					reject();
-					return console.error(err.message);
-				}
+		CreateBalance(guild, user);
+	} catch (err) {
+		console.error(err);
+	}
 
-				if (row) resolve(row.WarningDuration);
-				else resolve(null);
-			},
-		);
 
-		guildsDB.close();
-	});
 }
 
-function RemoveWarningsCheck() {
+
+async function RemoveWarningsCheck() {
 	const now = Date.now();
 
-	let punishmentsDB = new sqlite3.Database(
-		"./Databases/punishments.db",
-		sqlite3.OPEN_READWRITE,
-		(err) => {
-			if (err) return console.error(err.message);
-		},
-	);
-
+	const punishmentsDB = DatabaseManager.InitialiseDatabase("punishments.db");
 	const q = "SELECT * FROM Warnings";
-	punishmentsDB.all(q, [], async (err, rows) => {
-		if (err) return console.error(err.message);
 
-		rows.forEach((row) => {
-			if (parseInt(row.WarningExpiry) - now < 0) {
-				punishmentsDB.run(
-					"DELETE FROM Warnings WHERE User = ? AND Guild = ?",
-					[row.User, row.Guild],
-				);
-			}
-		});
+	const rows = await punishmentsDB.GetAll(q, []);
+	punishmentsDB.Close();
+
+	if(!rows) return;
+
+	rows.forEach((row) => {
+		if (parseInt(row.WarningExpiry) - now < 0) {
+			punishmentsDB.run(
+				"DELETE FROM Warnings WHERE User = ? AND Guild = ?",
+				[row.User, row.Guild],
+			);
+		}
 	});
 }

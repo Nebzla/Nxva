@@ -17,8 +17,8 @@ module.exports = {
 				);
 			} else {
 				guildsDB.RunValues(
-					"INSERT INTO Settings(Guild,WarningDuration,LimboRole,DefaultPunishReason) VALUES (?,?,?,?)",
-					[guild.id, null, role.id, null]
+					"INSERT INTO Settings(Guild,LimboRole) VALUES (?,?)",
+					[guild.id, role.id]
 				);
 			}
 			
@@ -34,7 +34,6 @@ module.exports = {
 
 		return interaction.reply(
 			`The role ${role.name} has been set as the limbo role`,
-			{ ephemeral: true }
 		);
 	},
 };

@@ -27,8 +27,8 @@ module.exports = {
 				);
 			} else {
 				guildsDB.RunValues(
-					"INSERT INTO Settings(Guild,WarningDuration,LimboRole,DefaultPunishReason) VALUES (?,?,?,?)",
-					[guild.id, durationMs, null, null],
+					"INSERT INTO Settings(Guild,WarningDuration) VALUES (?,?)",
+					[guild.id, durationMs],
 				);
 			}
 			guildsDB.Close();

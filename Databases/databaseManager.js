@@ -1,6 +1,4 @@
 const sqlite3 = require("sqlite3").verbose();
-
-
 let openDatabases = [];
 
 // Column Class that is used in creating a table
@@ -103,8 +101,12 @@ function CreateColumnsArray(c) {
 }
 
 // Instantiates a new Database Class with the sqlite db object and the path to the database
-function InitialiseDatabase(path) {
-	const object = new sqlite3.Database(`./Databases/${path}`, sqlite3.OPEN_CREATE | sqlite3.OPEN_READWRITE, (err) => {
+function InitialiseDatabase(path, fullPath = false) {
+    let p;
+    if(fullPath) p = path;
+    else p = `./Databases/${path}`;
+
+	const object = new sqlite3.Database(p, sqlite3.OPEN_CREATE | sqlite3.OPEN_READWRITE, (err) => {
 		if(err) {
             console.log(err);
             return err;
