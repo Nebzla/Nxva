@@ -4,7 +4,7 @@ const {
 	PermissionFlagsBits,
 	EmbedBuilder,
 } = require("discord.js");
-const sqlite3 = require("sqlite3").verbose();
+const DatabaseManager = require("../../Databases/databaseManager.js");
 const stylings = require("../../stylings.js");
 const settings = require("../utilities/settings.js");
 
@@ -34,13 +34,8 @@ module.exports = {
 				);
 		}),
 	async execute(interaction) {
-		let punishmentsDB = new sqlite3.Database(
-			"./Databases/punishments.db",
-			sqlite3.OPEN_READWRITE,
-			(err) => {
-				if (err) return console.error(err.message);
-			}
-		);
+		const punishmentsDB =
+			DatabaseManager.InitialiseDatabase("punishments.db");
 
 		const guild = interaction.guild;
 		const target = interaction.options.getUser("user");
@@ -75,99 +70,96 @@ module.exports = {
 		});
 
 		const q = "SELECT * FROM Limbos WHERE Guild = ? AND User = ?";
-		punishmentsDB.get(q, [guild.id, target.id], async (err, row) => {
-			if (err) return console.error(err.message);
+		const row = await punishmentsDB.Get(q, [guild.id, target.id]);
 
-			if (row)
-				return interaction.reply({
-					content:
-						"That user is already in limbo, did you mean to run /clearlimbo?",
-					ephemeral: true,
-				});
-			else {
-				//Not In Limbo
-				const confirmEmbed = new EmbedBuilder()
-					.setTitle("Confirm Limbo")
-					.setColor("NotQuiteBlack").setDescription(`
+		if (row)
+			return interaction.reply({
+				content:
+					"That user is already in limbo, did you mean to run /clearlimbo?",
+				ephemeral: true,
+			});
+		else {
+			//Not In Limbo
+			const confirmEmbed = new EmbedBuilder()
+				.setTitle("Confirm Limbo")
+				.setColor("NotQuiteBlack").setDescription(`
 **User:** ${target.globalName}
 **Issued By:** ${interaction.user.globalName}
 
 **Reason:** ${reason}
                     `);
 
-				const publicEmbed = new EmbedBuilder()
-					.setTitle("User Limbo'd")
-					.setColor("DarkButNotBlack").setDescription(`
+			const publicEmbed = new EmbedBuilder()
+				.setTitle("User Limbo'd")
+				.setColor("DarkButNotBlack").setDescription(`
 **User:** ${target.globalName}
 **Reason:** ${reason}
                    `);
 
-				const actionRow = new ActionRowBuilder().addComponents(
-					stylings.buttons.confirm,
-					stylings.buttons.cancel
-				);
+			const actionRow = new ActionRowBuilder().addComponents(
+				stylings.buttons.confirm,
+				stylings.buttons.cancel
+			);
 
-				const resp = await interaction.reply({
-					embeds: [confirmEmbed],
-					components: [actionRow],
-					ephemeral: true,
+			const resp = await interaction.reply({
+				embeds: [confirmEmbed],
+				components: [actionRow],
+				ephemeral: true,
+			});
+
+			// Listens for a button interaction from the user who ran the command
+			const collectFilter = (x) => x.user.id === interaction.user.id;
+			try {
+				const c = await resp.awaitMessageComponent({
+					filter: collectFilter,
+					time: 60_000,
 				});
 
-				// Listens for a button interaction from the user who ran the command
-				const collectFilter = (x) => x.user.id === interaction.user.id;
-				try {
-					const c = await resp.awaitMessageComponent({
-						filter: collectFilter,
-						time: 60_000,
+				//Limbos if confirm button is pressed
+				if (c.customId === "confirm") {
+					punishmentsDB.run(
+						"INSERT INTO Limbos(Guild,User,Reason,LostRoles) VALUES(?,?,?,?)",
+						[guild.id, target.id, reason, JSON.stringify(lostRoles)]
+					);
+					punishmentsDB.close();
+
+					guildTarget.roles.add(role).catch(() => {
+						return interaction.reply(
+							"An error occured, please ensure my role is above those you wish to manage in the hierarchy"
+						);
 					});
 
-					//Limbos if confirm button is pressed
-					if (c.customId === "confirm") {
-						punishmentsDB.run(
-							"INSERT INTO Limbos(Guild,User,Reason,LostRoles) VALUES(?,?,?,?)",
-							[
-								guild.id,
-								target.id,
-								reason,
-								JSON.stringify(lostRoles),
-							]
-						);
-						punishmentsDB.close();
-
-						guildTarget.roles.add(role).catch(() => {
-							return interaction.reply("An error occured, please ensure my role is above those you wish to manage in the hierarchy");
+					lostRoleObjects.forEach((r) => {
+						guildTarget.roles.remove(r).catch(() => {
+							return interaction.reply(
+								"An error occured, please ensure my role is above those you wish to manage in the hierarchy"
+							);
 						});
+					});
 
-						lostRoleObjects.forEach((r) => {
-							guildTarget.roles.remove(r).catch(() => {
-								return interaction.reply("An error occured, please ensure my role is above those you wish to manage in the hierarchy");
-							});
-						});
+					await c.channel.send({
+						embeds: [publicEmbed],
+						components: [],
+						ephemeral: false,
+					});
 
-						await c.channel.send({
-							embeds: [publicEmbed],
-							components: [],
-							ephemeral: false,
-						});
-
-						await interaction.deleteReply();
-					} else if (c.customId === "cancel") {
-						await c.update({
-							embeds: [stylings.embeds.cancelled],
-							components: [],
-						});
-					}
-
-					// Catches interaction failiure if no response is given
-				} catch (e) {
-					console.log(e);
-					await interaction.editReply({
-						content:
-							"Confirmation not received within 1 minute, cancelling",
+					await interaction.deleteReply();
+				} else if (c.customId === "cancel") {
+					await c.update({
+						embeds: [stylings.embeds.cancelled],
 						components: [],
 					});
 				}
+
+				// Catches interaction failiure if no response is given
+			} catch (e) {
+				console.log(e);
+				await interaction.editReply({
+					content:
+						"Confirmation not received within 1 minute, cancelling",
+					components: [],
+				});
 			}
-		});
+		}
 	},
 };

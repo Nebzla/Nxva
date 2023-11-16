@@ -4,7 +4,8 @@ const {
 	PermissionFlagsBits,
 	EmbedBuilder,
 } = require("discord.js");
-const sqlite3 = require("sqlite3").verbose();
+
+const DatabaseManager = require("../../Databases/databaseManager.js");
 const stylings = require("../../stylings");
 const settings = require("../utilities/settings.js");
 const ms = require("ms");
@@ -14,7 +15,7 @@ module.exports = {
 		.setName("warn")
 		.setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
 		.setDescription(
-			"Warns a user. Will be purely cosmetic to their profile unless warning punishments are setup",
+			"Warns a user. Will be purely cosmetic to their profile unless warning punishments are setup"
 		)
 
 		.addUserOption((option) => {
@@ -27,17 +28,12 @@ module.exports = {
 			return option
 				.setName("reason")
 				.setDescription(
-					"The reason for warning them, defaults to standard in settings",
+					"The reason for warning them, defaults to standard in settings"
 				);
 		}),
 	async execute(interaction) {
-		let punishmentsDB = new sqlite3.Database(
-			"./Databases/punishments.db",
-			sqlite3.OPEN_READWRITE,
-			(err) => {
-				if (err) return console.error(err.message);
-			},
-		);
+		const punishmentsDB =
+			DatabaseManager.InitialiseDatabase("punishments.db");
 
 		const guild = interaction.guild;
 		const target = interaction.options.getUser("user");
@@ -55,25 +51,21 @@ module.exports = {
 		const warningExpiry = Date.now() + parseInt(duration);
 
 		const q = "SELECT * FROM Warnings WHERE Guild = ? AND User = ?";
+		const row = await punishmentsDB.Get(q, [guild.id, target.id]);
 
-		punishmentsDB.get(q, [guild.id, target.id], async (err, row) => {
-			if (err) {
-				return console.error(err.message);
-			}
+		let warnings = 1;
+		let warnReasons = [];
 
-			let warnings = 1;
-			let warnReasons = [];
+		if (row) {
+			warnings += row.Warnings;
+			warnReasons = JSON.parse(row.WarningReasons);
+		}
 
-			if (row) {
-				warnings += row.Warnings;
-				warnReasons = JSON.parse(row.WarningReasons);
-			}
+		warnReasons.push(reason);
 
-			warnReasons.push(reason);
-
-			const confirmEmbed = new EmbedBuilder()
-				.setTitle("Confirm Warn")
-				.setColor("Orange").setDescription(`
+		const confirmEmbed = new EmbedBuilder()
+			.setTitle("Confirm Warn")
+			.setColor("Orange").setDescription(`
 **User:** ${target.globalName}
 **Issued By:** ${interaction.user.globalName}
     
@@ -82,9 +74,9 @@ module.exports = {
 **Expires In:** ${ms(parseInt(duration), { long: true })} 
 
                 `);
-			const publicEmbed = new EmbedBuilder()
-				.setTitle("User Warned")
-				.setColor("Orange").setDescription(`
+		const publicEmbed = new EmbedBuilder()
+			.setTitle("User Warned")
+			.setColor("Orange").setDescription(`
 **User:** ${target.globalName}
     
 **Total Warnings:** ${warnings}
@@ -93,73 +85,72 @@ module.exports = {
 
                 `);
 
-			const actionRow = new ActionRowBuilder().addComponents(
-				stylings.buttons.confirm,
-				stylings.buttons.cancel,
-			);
+		const actionRow = new ActionRowBuilder().addComponents(
+			stylings.buttons.confirm,
+			stylings.buttons.cancel
+		);
 
-			const resp = await interaction.reply({
-				embeds: [confirmEmbed],
-				components: [actionRow],
-				ephemeral: true,
+		const resp = await interaction.reply({
+			embeds: [confirmEmbed],
+			components: [actionRow],
+			ephemeral: true,
+		});
+
+		// Listens for a button interaction from the user who ran the command
+		const collectFilter = (x) => x.user.id === interaction.user.id;
+		try {
+			const c = await resp.awaitMessageComponent({
+				filter: collectFilter,
+				time: 60_000,
 			});
-
-			// Listens for a button interaction from the user who ran the command
-			const collectFilter = (x) => x.user.id === interaction.user.id;
-			try {
-				const c = await resp.awaitMessageComponent({
-					filter: collectFilter,
-					time: 60_000,
-				});
-				//Warns if confirm button is pressed
-				if (c.customId === "confirm") {
-					// Updates Current Entry if it already exists
-					if (row) {
-						punishmentsDB.run(
-							"UPDATE Warnings SET Warnings = ?, WarningExpiry = ?, WarningReasons = ? WHERE Guild = ? AND User = ?",
-							[
-								warnings,
-								warningExpiry,
-								JSON.stringify(warnReasons),
-								guild.id,
-								target.id,
-							],
-						);
-					} else {
-						punishmentsDB.run(
-							"INSERT INTO Warnings(Guild,User,Warnings,WarningExpiry,WarningReasons) VALUES(?,?,?,?,?)",
-							[
-								guild.id,
-								target.id,
-								warnings,
-								warningExpiry,
-								JSON.stringify(warnReasons),
-							],
-						);
-					}
-					punishmentsDB.close();
-
-					await c.channel.send({
-						embeds: [publicEmbed],
-						components: [],
-						ephemeral: false,
-					});
-					await interaction.deleteReply();
-				} else if (c.customId === "cancel") {
-					await c.update({
-						embeds: [stylings.embeds.cancelled],
-						components: [],
-					});
+			//Warns if confirm button is pressed
+			if (c.customId === "confirm") {
+				// Updates Current Entry if it already exists
+				if (row) {
+					punishmentsDB.run(
+						"UPDATE Warnings SET Warnings = ?, WarningExpiry = ?, WarningReasons = ? WHERE Guild = ? AND User = ?",
+						[
+							warnings,
+							warningExpiry,
+							JSON.stringify(warnReasons),
+							guild.id,
+							target.id,
+						]
+					);
+				} else {
+					punishmentsDB.run(
+						"INSERT INTO Warnings(Guild,User,Warnings,WarningExpiry,WarningReasons) VALUES(?,?,?,?,?)",
+						[
+							guild.id,
+							target.id,
+							warnings,
+							warningExpiry,
+							JSON.stringify(warnReasons),
+						]
+					);
 				}
+				punishmentsDB.close();
 
-				// Catches interaction failiure if no response is given
-			} catch (e) {
-				await interaction.editReply({
-					content:
-						"Confirmation not received within 1 minute, cancelling",
+				await c.channel.send({
+					embeds: [publicEmbed],
+					components: [],
+					ephemeral: false,
+				});
+				await interaction.deleteReply();
+			} else if (c.customId === "cancel") {
+				await c.update({
+					embeds: [stylings.embeds.cancelled],
 					components: [],
 				});
 			}
-		});
+
+			// Catches interaction failiure if no response is given
+		} catch (e) {
+			await interaction.editReply({
+				content:
+					"Confirmation not received within 1 minute, cancelling",
+				components: [],
+			});
+		}
 	},
 };
