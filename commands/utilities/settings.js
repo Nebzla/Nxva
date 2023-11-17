@@ -1,6 +1,3 @@
-//Used To Configure Moderation Settings in a discord server
-// /Settings show
-// /Settings <setting> <value>
 const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 const path = require("path");
 const DatabaseManager = require("../../Databases/databaseManager.js");
@@ -140,6 +137,7 @@ async function ResetBalance(guild, user) {
 
 
 }
+
 
 
 async function RemoveWarningsCheck() {

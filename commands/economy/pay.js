@@ -1,6 +1,6 @@
 const { SlashCommandBuilder } = require("discord.js");
 const DatabaseManager = require("../../Databases/databaseManager");
-const settings = require("../utilities/settings");
+const { CreateBalance } = require("../utilities/settings");
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -32,7 +32,7 @@ module.exports = {
 
         if(!targetRow) return interaction.reply(`That user doesn\'t have a balance setup, tell them to set one up before paying them`);
         if(!payeeRow) {
-            settings.CreateBalance()
+            CreateBalance()
             return interaction.reply(`You don\'t have a balance, i've created one for you, please try again`);
         }
 
@@ -42,8 +42,6 @@ module.exports = {
         const payeeRemainingBalance = parseInt(payeeRow.Balance) - parseInt(amount);
         const targetNewBalance = parseInt(targetRow.Balance) + parseInt(amount);
 
-        console.log(payeeRemainingBalance);
-        console.log(targetNewBalance);
 
         q = "UPDATE Balance SET Balance = ? WHERE Guild = ? AND User = ?";
         economyDB.RunValues(q, [payeeRemainingBalance, interaction.guild.id, interaction.user.id]);

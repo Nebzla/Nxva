@@ -1,7 +1,7 @@
 const { SlashCommandBuilder } = require("discord.js");
 const DatabaseManager = require("../../Databases/databaseManager");
-const settings = require("../../commands/utilities/settings.js");
-const utilities = require("../../utilities.js")
+const { CreateBalance } = require("../../commands/utilities/settings.js");
+const { InsertCommas } = require("../../utilities.js")
 
 
 // Also do this for a set member
@@ -31,9 +31,9 @@ module.exports = {
         economyDB.Close();
 
 		if (row) {
-            return interaction.reply(`Current balance is $${utilities.InserCommas(row.Balance)}`);
+            return interaction.reply(`Current balance is $${InsertCommas(row.Balance)}`);
         } else {
-            settings.CreateBalance(interaction.guild.id, user.id);
+            CreateBalance(interaction.guild.id, user.id);
             return interaction.reply("You don't currently have a balance, I'll give you the starting balance now");
         }
 	},

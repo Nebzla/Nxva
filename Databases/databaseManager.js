@@ -94,7 +94,6 @@ function CreateColumnsArray(c) {
 	let a = [];
 	for (let i = 0; i < c.length; i += 2) {
 		a.push(new Column(c[i], c[i + 1]));
-		
 	}
 
 	return a;
@@ -111,7 +110,7 @@ function InitialiseDatabase(path, fullPath = false) {
             console.log(err);
             return err;
         }
-	});
+	}); 
 
 	return new Database(object, path);
 
