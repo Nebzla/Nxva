@@ -73,9 +73,8 @@ for (const file of eventFiles) {
 	}
 }
 
+
 const DatabaseManager = require("./Databases/databaseManager.js");
-
-
 
 const punishmentsDB = DatabaseManager.InitialiseDatabase("punishments.db");
 const guildsDB = DatabaseManager.InitialiseDatabase("guilds.db");

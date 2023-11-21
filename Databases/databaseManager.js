@@ -18,6 +18,7 @@ class Database {
 		openDatabases.push(this);
 	}
 
+    //Closes database if open
 	Close() {
 		const i = openDatabases.indexOf(this);
 		if(i !== -1) openDatabases.splice(i, 1);
@@ -25,6 +26,12 @@ class Database {
 		this.db.close();
 	}
 
+    //Opens the previously closed database
+    Open() {
+        this.db = InitialiseDatabase(this.path).db;
+    }
+
+    //
 	Run(query) {
         try {
             this.db.run(query);
@@ -80,6 +87,7 @@ class Database {
             query += `${columns[c].name} ${columns[c].type}`;
             if(c !== (columns.length - 1)) query += ", ";
             
+
         }
 
 		query += ")";
