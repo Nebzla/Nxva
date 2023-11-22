@@ -42,7 +42,7 @@ module.exports = {
     try {
       await command.execute(interaction, client);
     } catch (error) {
-      console.error(error);
+      console.warn(error);
       if (interaction.replied | interaction.deferred) {
         await interaction.followUp({
           content:

@@ -101,9 +101,7 @@ function CreateCardPool() {
 	return pool;
 }
 
-let activeGameIds = [];
-
-// Also do this for a set member
+let activeGameIds = []; // An array of active user ids to prevent the user from having multiple ongoing games
 module.exports = {
 	data: new SlashCommandBuilder()
 		.setName("blackjack")
@@ -119,6 +117,7 @@ module.exports = {
 				.setRequired(true);
 		}),
 	async execute(interaction) {
+		// Buttons displayed on the embed when sent to the channel
 		const drawButton = new ButtonBuilder()
 			.setCustomId("draw")
 			.setLabel("Draw")
@@ -132,13 +131,16 @@ module.exports = {
 		const doubleButton = new ButtonBuilder()
 			.setCustomId("double")
 			.setLabel("Double")
-			.setStyle(ButtonStyle.Danger);
+			.setStyle(ButtonStyle.Danger)
+			.setDisabled(true);
 
 		const splitButton = new ButtonBuilder()
 			.setCustomId("split")
 			.setLabel("Split")
-			.setStyle(ButtonStyle.Primary);
+			.setStyle(ButtonStyle.Primary)
+			.setDisabled(true);
 
+		// Checks for an active game in the activeGameIds array
 		if (activeGameIds.includes(interaction.user.id))
 			return interaction.reply(
 				"You can't do that, there's already a game going on!"
@@ -146,11 +148,13 @@ module.exports = {
 
 		const economyDB = DatabaseManager.InitialiseDatabase("economy.db");
 
+		// Fetches user's balance
 		const row = await economyDB.Get(
 			"SELECT * FROM Balance WHERE Guild = ? AND User = ?",
 			[interaction.guild.id, interaction.user.id]
 		);
 
+		// Gives user a balance if they dont presently have one
 		if (!row) {
 			settings.CreateBalance(interaction.guild.id, interaction.user.id);
 			return interaction.reply(
@@ -158,11 +162,14 @@ module.exports = {
 			);
 		}
 
+		// Amount specified by the user in the interaction
 		let amount = interaction.options.getInteger("amount");
 
+		// Balance from DB query previous
 		let balance = row.Balance;
 		let loseBalance = balance - amount;
 
+		// Ensures user has sufficient funds and hasnt entered a negative value
 		if (loseBalance < 0)
 			return interaction.reply(
 				"You don't have enough money to bet that much, ya muppet"
@@ -172,24 +179,23 @@ module.exports = {
 				"What, you want to give me money if you win?"
 			);
 
-		if (amount * 2 > balance) doubleButton.setDisabled(true);
-
+		//Sets lose balance before game start to prevent the user from abandoning the game when dealt a bad hand
 		economyDB.RunValues(
 			"UPDATE Balance SET Balance = ? WHERE Guild = ? AND User = ?",
 			[loseBalance, interaction.guild.id, interaction.user.id]
 		);
-		//Sets lose balance now to prevent the user from abandoning the game when dealt a bad hand
 
 		economyDB.Close();
-
 		const cardPool = CreateCardPool();
 
+		// Player class containing an array of their cards and various functions for actions to take
 		class Player {
 			constructor(cards = [], draws = 0) {
 				this.cards = cards;
 				this.draws = draws;
 			}
 
+			// Draws a random card from the current card pool and stores it to the cards array
 			DrawCard(q = 1) {
 				for (let i = 0; i < q; i++) {
 					const cardIndex = Math.floor(
@@ -204,6 +210,13 @@ module.exports = {
 				}
 			}
 
+			// For testing purposes only, draws a specific card rather than it being random, will not remove from card pool
+			DrawSetCard(card) {
+				this.cards.push(card);
+				this.draws++;
+			}
+
+			// Gets the total value of all cards the player has including max ace value
 			GetTotalValue() {
 				let total = 0;
 				this.cards.forEach((card) => {
@@ -213,6 +226,7 @@ module.exports = {
 				return total;
 			}
 
+			// Returns whether or not the user has any aces
 			HasAces() {
 				this.cards.forEach((card) => {
 					if (card.value === 11) return true;
@@ -221,6 +235,7 @@ module.exports = {
 				return false;
 			}
 
+			// Gets the value of cards based on aces' lowest value
 			GetAcesLowValue() {
 				let total = 0;
 				this.cards.forEach((card) => {
@@ -234,16 +249,26 @@ module.exports = {
 				return total;
 			}
 
+			// Checks if the user is bust no matter what (assumes low ace values)
 			IsBust() {
 				if (this.GetAcesLowValue() <= 21) return false;
 				else return true;
 			}
+
+			// Checks if the user is bust when not counting ace low values
 			IsAceBust() {
 				if (this.GetTotalValue() <= 21) return false;
 				else return true;
 			}
 
-			StringifyCards() {
+			// Checks if the user is able to double their bet
+			CanDouble() {
+				if ([9, 10, 11].includes(this.GetAcesLowValue())) return true;
+				else return false;
+			}
+
+			// Returns a stringified version of the card array to display in the embed
+			StringifyCards(retainComma = false) {
 				if (this.cards.length === 0) return " None";
 
 				let cardsStr = "";
@@ -251,17 +276,26 @@ module.exports = {
 					cardsStr += ` ${card.displayName}, `;
 				});
 
-				return cardsStr;
+				if (retainComma) return cardsStr;
+				else return cardsStr.slice(0, -2);
 			}
 		}
 
+		// Instantiates a player and a computer Player object and draws the starting cards
 		let player = new Player();
 		let computer = new Player();
 		computer.DrawCard();
 		player.DrawCard(2);
-
 		activeGameIds.push(interaction.user.id);
 
+		// Verifies the player has sufficient money and cards to double and enables the button if so
+		if (amount * 2 < balance && player.CanDouble())
+			doubleButton.setDisabled(false);
+
+		// Will automatically trigger natural win if the user manages to get an ace and a ten
+		if (player.GetTotalValue() === 21) return CheckWinConditions(true);
+
+		// Returns an updated embed to display when the game state changes
 		function RefreshGameEmbed() {
 			return new EmbedBuilder()
 				.setTitle(`Blackjack: ${interaction.user.globalName}`)
@@ -270,7 +304,7 @@ module.exports = {
 					text: `Betting $${amount}`,
 					iconURL: interaction.member.displayAvatarURL(),
 				}).setDescription(`
-                **Dealer Cards**:${computer.StringifyCards()}???
+                **Dealer Cards**:${computer.StringifyCards(true)}???
     
                 **Your Cards**:${player.StringifyCards()}
                 **Card Value**: ${player.GetTotalValue()} / ${player.GetAcesLowValue()}
@@ -278,6 +312,16 @@ module.exports = {
             `);
 		}
 
+		function RefreshActionRow() {
+			return (actionRow = new ActionRowBuilder().addComponents(
+				drawButton,
+				stickButton,
+				doubleButton,
+				splitButton
+			));
+		}
+
+		// Draws as the dealer would until they have at least 17
 		function ComputerDraw() {
 			if (computer.GetAcesLowValue() <= 17) {
 				computer.DrawCard();
@@ -285,21 +329,16 @@ module.exports = {
 			}
 		}
 
-		const actionRow = new ActionRowBuilder().addComponents(
-			drawButton,
-			stickButton,
-			doubleButton,
-			splitButton
-		);
-
 		const resp = await interaction.reply({
 			embeds: [RefreshGameEmbed()],
-			components: [actionRow],
+			components: [RefreshActionRow()],
 		});
 
+		// Listens for button presses by the desginated user and repeats via recursion until broken out of when a game ending condition is met
 		async function AwaitButton() {
 			const collectFilter = (x) => x.user.id === interaction.user.id;
 			try {
+				// Sets the listener with a 2 minute timeout
 				const c = await resp.awaitMessageComponent({
 					filter: collectFilter,
 					time: 120_000,
@@ -309,6 +348,8 @@ module.exports = {
 					case "draw":
 						player.DrawCard();
 
+						if (!doubleButton.data.disabled)
+							doubleButton.setDisabled(true);
 						if (player.IsBust()) {
 							return CheckWinConditions();
 						}
@@ -318,6 +359,7 @@ module.exports = {
 					case "stick":
 						return CheckWinConditions();
 					case "double":
+						// Doubles the bet if they desire and updates the balance as appropriate
 						amount *= 2;
 						loseBalance = balance - amount;
 
@@ -335,6 +377,7 @@ module.exports = {
 						player.DrawCard();
 						return CheckWinConditions();
 
+					// Not yet implemented
 					case "split":
 						break;
 
@@ -343,10 +386,14 @@ module.exports = {
 				}
 
 				c.deferUpdate();
-				interaction.editReply({ embeds: [RefreshGameEmbed()] });
+				interaction.editReply({
+					embeds: [RefreshGameEmbed()],
+					components: [RefreshActionRow()],
+				});
 				AwaitButton();
 			} catch (e) {
 				console.log(e);
+				// Catches the error when no response is given is the 2m
 				await interaction.editReply({
 					content: "No action received within 2 minutes, cancelling",
 					components: [],
@@ -356,7 +403,8 @@ module.exports = {
 
 		await AwaitButton();
 
-		function CheckWinConditions() {
+		// Checks wins conditions to determine whether or not the player or the dealer wins
+		function CheckWinConditions(natural21 = false) {
 			ComputerDraw();
 
 			let finalComputerValue, finalPlayerValue;
@@ -376,17 +424,27 @@ module.exports = {
 
 			const amountWon = isPlayerBlackjack ? 3 * amount : 2 * amount;
 
-			if (playerIsBust) {
-				const value = player.GetAcesLowValue();
-
+			if (natural21) {
+				return interaction.reply({
+					embeds: [
+						new EmbedBuilder()
+							.setTitle("You Win!")
+							.setColor("Green")
+							.setDescription(
+								`You got a natural blackjack on your first 2 cards:\n${player.StringifyCards()}\n\nEnjoy the free money!`
+							)
+							.setFooter({ text: `You won $${amountWon}` }),
+					],
+				});
+			} else if (playerIsBust) {
 				return interaction.editReply({
 					embeds: [
 						new EmbedBuilder()
 							.setTitle("You Lose!")
 							.setColor("LightGrey")
 							.setDescription(
-								`You bust by ${value - 21} point${
-									value - 21 > 1 ? "s" : ""
+								`You bust by ${finalPlayerValue - 21} point${
+									finalPlayerValue - 21 > 1 ? "s" : ""
 								}, unfortunate!`
 							)
 							.setFooter({ text: `You lost $${amount}!` }),
@@ -459,6 +517,7 @@ module.exports = {
 				});
 			}
 
+			// Runs in the event of the player winning and sets their new winning balance
 			function PlayerWin() {
 				economyDB.Open();
 				economyDB.RunValues(
@@ -473,6 +532,7 @@ module.exports = {
 			}
 		}
 
+		// Removes the user's id from the ongoing games list
 		activeGameIds.splice(activeGameIds.indexOf(interaction.user.id), 1);
 	},
 };
