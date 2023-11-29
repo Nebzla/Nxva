@@ -16,6 +16,7 @@ const client = new Client({
 	],
 });
 
+//Map of commands and their respective cooldowns
 client.commands = new Collection();
 client.cooldowns = new Collection();
 const token = process.env.TOKEN;
@@ -30,7 +31,7 @@ exports.dateString = dateString;
 
 // Executes When Client Is Online
 client.once(Events.ClientReady, (c) => {
-	console.log(`Bot Is Online. Logged in as ${c.user.tag} At ${dateString};`);
+	console.log(`\x1b[32m`, `\nBot Online Logged in as ${c.user.tag}\nAt ${dateString}\nTook ${Date.now() - timeInitialised}ms;\n`);
 });
 
 // Iterates through .js slash commands in ./commands subsequent directories and executes them;
@@ -81,7 +82,7 @@ const guildsDB = DatabaseManager.InitialiseDatabase("guilds.db");
 const economyDB = DatabaseManager.InitialiseDatabase("economy.db");
 
 
-economyDB.CreateTable("Balance", DatabaseManager.CreateColumnsArray(["Guild", "Text", "User", "Text", "Balance", "Text"]));
+economyDB.CreateTable("Balances", DatabaseManager.CreateColumnsArray(["Guild", "Text", "User", "Text", "Balance", "Integer"]));
 guildsDB.CreateTable("Settings", DatabaseManager.CreateColumnsArray(["Guild", "Text", "WarningDuration", "Text", "LimboRole", "Text", "DefaultPunishReason", "Text", "StartingBalance", "Integer"]));
 punishmentsDB.CreateTable("Limbos", DatabaseManager.CreateColumnsArray(["Guild", "Text", "User", "Text", "Reason", "Text", "LostRoles", "Text"]));
 punishmentsDB.CreateTable("Warnings", DatabaseManager.CreateColumnsArray(["Guild", "Text", "User", "Text", "Warnings", "Integer", "WarningExpiry", "Text", "WarningReasons", "Text"]));

@@ -21,7 +21,7 @@ module.exports = {
         let user = interaction.options.getUser("user");
         if(!user) user = interaction.user;
 
-		const q = "SELECT * FROM Balance WHERE Guild = ? AND User = ?";
+		const q = "SELECT * FROM Balances WHERE Guild = ? AND User = ?";
 		const economyDB = DatabaseManager.InitialiseDatabase("economy.db");
 		const row = await economyDB.Get(q, [
 			interaction.guild.id,

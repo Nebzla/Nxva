@@ -8,24 +8,24 @@ module.exports = {
 		.setDescription(
 			"Overwrites a specific members balance to a given value"
 		)
-		.addIntegerOption((option) => {
-			return option
-				.setName("amount")
-				.setDescription("The $ amount")
-				.setRequired(true)
-        })
         .addUserOption((option) => {
             return option
                 .setName("user")
                 .setDescription("The user to give the balance to")
                 .setRequired(true);
+        })
+		.addIntegerOption((option) => {
+			return option
+				.setName("amount")
+				.setDescription("The $ amount")
+				.setRequired(true)
         }),
 
 	async execute(interaction) {
         const amount = interaction.options.getInteger("amount");
         const user = interaction.options.getUser("user");
 
-        const q = "SELECT * FROM Balance WHERE Guild = ? AND User = ?";
+        const q = "SELECT * FROM Balances WHERE Guild = ? AND User = ?";
 		const economyDB = DatabaseManager.InitialiseDatabase("economy.db");
 		const row = await economyDB.Get(q, [
 			interaction.guild.id,
@@ -33,11 +33,11 @@ module.exports = {
 		]);
 
         if(row) {
-            await economyDB.RunValues("UPDATE Balance SET Balance = ? WHERE Guild = ? AND User = ?", [amount, interaction.guild.id, user.id]);
+            await economyDB.RunValues("UPDATE Balances SET Balance = ? WHERE Guild = ? AND User = ?", [amount, interaction.guild.id, user.id]);
             interaction.reply(`Updated ${user.username}'s balance to $${amount} from $${row.Balance}`)
 
         } else {
-            await economyDB.RunValues("INSERT INTO Balance(Guild,User,Balance) VALUES(?,?,?)", [interaction.guild.id, user.id, amount]);
+            await economyDB.RunValues("INSERT INTO Balances(Guild,User,Balance) VALUES(?,?,?)", [interaction.guild.id, user.id, amount]);
             interaction.reply(`Set ${user.username}'s balance to $${amount}`)
         }
 

@@ -114,7 +114,7 @@ async function FetchSetting(guildId, setting) {
 
 async function CreateBalance(guild, user) {
     const economyDB = DatabaseManager.InitialiseDatabase("economy.db");
-    const q = "INSERT INTO Balance(Guild, User, Balance) VALUES(?,?,?)";
+    const q = "INSERT INTO Balances(Guild, User, Balance) VALUES(?,?,?)";
     
 	const startingBalance = await FetchSetting(guild, "StartingBalance");
 	if(startingBalance) economyDB.RunValues(q, [guild, user, startingBalance]);
@@ -125,7 +125,7 @@ async function CreateBalance(guild, user) {
 
 async function ResetBalance(guild, user) {
 	const economyDB = DatabaseManager.InitialiseDatabase("economy.db");
-	const q = "DELETE FROM Balance WHERE Guild = ? AND User = ?";
+	const q = "DELETE FROM Balances WHERE Guild = ? AND User = ?";
 	try {
 		await economyDB.RunValues(q, [guild, user]);
 		economyDB.Close();

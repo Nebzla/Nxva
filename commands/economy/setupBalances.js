@@ -11,7 +11,7 @@ module.exports = {
 		),
         async execute(interaction) {
             const economyDB = DatabaseManager.InitialiseDatabase("economy.db");
-            const q = "SELECT * FROM Balance WHERE Guild = ? AND User = ?"
+            const q = "SELECT * FROM Balances WHERE Guild = ? AND User = ?"
 
             const guild = interaction.guild;
             const members = await guild.members.fetch();

@@ -24,7 +24,7 @@ module.exports = {
         const target = interaction.options.getUser("user");
         const economyDB = DatabaseManager.InitialiseDatabase("economy.db");
 
-        let q = "SELECT * FROM Balance WHERE Guild = ? AND User = ?";
+        let q = "SELECT * FROM Balances WHERE Guild = ? AND User = ?";
 
         const targetRow = await economyDB.Get(q, [interaction.guild.id, target.id])
         const payeeRow = await economyDB.Get(q, [interaction.guild.id, interaction.user.id])
@@ -43,7 +43,7 @@ module.exports = {
         const targetNewBalance = parseInt(targetRow.Balance) + parseInt(amount);
 
 
-        q = "UPDATE Balance SET Balance = ? WHERE Guild = ? AND User = ?";
+        q = "UPDATE Balances SET Balance = ? WHERE Guild = ? AND User = ?";
         economyDB.RunValues(q, [payeeRemainingBalance, interaction.guild.id, interaction.user.id]);
         economyDB.RunValues(q, [targetNewBalance, interaction.guild.id, target.id]);
 

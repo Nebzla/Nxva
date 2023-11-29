@@ -150,13 +150,13 @@ module.exports = {
 
 		// Fetches user's balance
 		const row = await economyDB.Get(
-			"SELECT * FROM Balance WHERE Guild = ? AND User = ?",
+			"SELECT * FROM Balances WHERE Guild = ? AND User = ?",
 			[interaction.guild.id, interaction.user.id]
 		);
 
 		// Gives user a balance if they dont presently have one
 		if (!row) {
-			settings.CreateBalance(interaction.guild.id, interaction.user.id);
+			CreateBalance(interaction.guild.id, interaction.user.id);
 			return interaction.reply(
 				"You didn't have a balance, I've given you the default now, please try again"
 			);
@@ -181,7 +181,7 @@ module.exports = {
 
 		//Sets lose balance before game start to prevent the user from abandoning the game when dealt a bad hand
 		economyDB.RunValues(
-			"UPDATE Balance SET Balance = ? WHERE Guild = ? AND User = ?",
+			"UPDATE Balances SET Balance = ? WHERE Guild = ? AND User = ?",
 			[loseBalance, interaction.guild.id, interaction.user.id]
 		);
 
@@ -286,14 +286,14 @@ module.exports = {
 		let computer = new Player();
 		computer.DrawCard();
 		player.DrawCard(2);
-		activeGameIds.push(interaction.user.id);
 
 		// Verifies the player has sufficient money and cards to double and enables the button if so
-		if (amount * 2 < balance && player.CanDouble())
+		if (amount * 2 <= balance && player.CanDouble())
 			doubleButton.setDisabled(false);
 
 		// Will automatically trigger natural win if the user manages to get an ace and a ten
 		if (player.GetTotalValue() === 21) return CheckWinConditions(true);
+
 
 		// Returns an updated embed to display when the game state changes
 		function RefreshGameEmbed() {
@@ -329,6 +329,7 @@ module.exports = {
 			}
 		}
 
+		activeGameIds.push(interaction.user.id);
 		const resp = await interaction.reply({
 			embeds: [RefreshGameEmbed()],
 			components: [RefreshActionRow()],
@@ -365,7 +366,7 @@ module.exports = {
 
 						economyDB.Open();
 						await economyDB.RunValues(
-							"UPDATE Balance SET Balance = ? WHERE Guild = ? AND User = ?",
+							"UPDATE Balances SET Balance = ? WHERE Guild = ? AND User = ?",
 							[
 								loseBalance,
 								interaction.guild.id,
@@ -418,14 +419,11 @@ module.exports = {
 				? player.GetAcesLowValue()
 				: player.GetTotalValue();
 
-			const isPlayerBlackjack = player.IsAceBust()
-				? player.GetAcesLowValue() === 21
-				: player.GetTotalValue() === 21;
-
-			const amountWon = isPlayerBlackjack ? 3 * amount : 2 * amount;
+			let amountWon = 2 * amount;
 
 			if (natural21) {
-				return interaction.reply({
+				amountWon = amount * 3;
+				interaction.reply({
 					embeds: [
 						new EmbedBuilder()
 							.setTitle("You Win!")
@@ -433,9 +431,11 @@ module.exports = {
 							.setDescription(
 								`You got a natural blackjack on your first 2 cards:\n${player.StringifyCards()}\n\nEnjoy the free money!`
 							)
-							.setFooter({ text: `You won $${amountWon}` }),
+							.setFooter({ text: `You won $${InsertCommas(amountWon)}` }),
 					],
 				});
+				
+				PlayerWin();
 			} else if (playerIsBust) {
 				return interaction.editReply({
 					embeds: [
@@ -464,7 +464,7 @@ module.exports = {
 									computer.GetAcesLowValue() - 21
 								}, you win!`
 							)
-							.setFooter({ text: `You've won $${amountWon}` }),
+							.setFooter({ text: `You've won $${InsertCommas(InsertCommas(amountWon))}` }),
 					],
 					components: [],
 				});
@@ -481,7 +481,7 @@ module.exports = {
 									finalPlayerValue - finalComputerValue
 								}! He had ${finalComputerValue} while you had ${finalPlayerValue}`
 							)
-							.setFooter({ text: `You've won $${amountWon}` }),
+							.setFooter({ text: `You've won $${InsertCommas(amountWon)}` }),
 					],
 					components: [],
 				});
@@ -496,7 +496,7 @@ module.exports = {
 							.setDescription(
 								`The dealer won by ${
 									finalComputerValue - finalPlayerValue
-								} with a total of ${finalComputerValue}!`
+								} with a total of ${finalComputerValue}!` 
 							)
 							.setFooter({ text: `You've lost $${amount}` }),
 					],
@@ -521,9 +521,9 @@ module.exports = {
 			function PlayerWin() {
 				economyDB.Open();
 				economyDB.RunValues(
-					"UPDATE Balance SET Balance = ? WHERE Guild = ? AND User = ?",
+					"UPDATE Balances SET Balance = ? WHERE Guild = ? AND User = ?",
 					[
-						loseBalance + amountWon,
+						loseBalance + InsertCommas(amountWon),
 						interaction.guild.id,
 						interaction.user.id,
 					]
